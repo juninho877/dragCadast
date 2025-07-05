@@ -600,6 +600,13 @@ if (isset($_SESSION['register_error'])) {
             </div>
 
             <div class="login-form" id="loginFormContainer">
+                <?php if (isset($registerSuccess) && !empty($registerSuccess)): ?>
+                <div class="success-message">
+                    <i class="fas fa-check-circle"></i>
+                    <?php echo $registerSuccess; ?>
+                </div>
+                <?php endif; ?>
+                
                 <?php if ($loginSuccess): ?>
                 <div class="success-message">
                     <i class="fas fa-check-circle"></i>
@@ -654,13 +661,6 @@ if (isset($_SESSION['register_error'])) {
             </div>
             
             <div class="login-form" id="registerFormContainer" style="display: none;">
-                <?php if (isset($registerSuccess) && !empty($registerSuccess)): ?>
-                <div class="success-message">
-                    <i class="fas fa-check-circle"></i>
-                    <?php echo $registerSuccess; ?>
-                </div>
-                <?php endif; ?>
-                
                 <div class="welcome-text">
                     <h3>Crie sua conta grátis!</h3>
                     <p>Teste o sistema por 2 dias sem compromisso.</p>
