@@ -176,9 +176,6 @@ class MercadoPago {
             
             $payment = json_decode($response, true);
             
-            // Log the full API response for debugging
-            error_log("MercadoPago API Response (Subscription): " . print_r($payment, true), 3, __DIR__ . '/../logs/mercadopago_api.log');
-            
             if ($httpCode !== 201) {
                 $errorMessage = isset($payment['message']) ? $payment['message'] : 'Erro desconhecido';
                 return [
@@ -328,9 +325,6 @@ class MercadoPago {
             }
             
             $payment = json_decode($response, true);
-            
-            // Log the full API response for debugging
-            error_log("MercadoPago API Response (Credit): " . print_r($payment, true), 3, __DIR__ . '/../logs/mercadopago_api.log');
             
             if ($httpCode !== 201) {
                 $errorMessage = isset($payment['message']) ? $payment['message'] : 'Erro desconhecido';

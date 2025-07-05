@@ -158,10 +158,7 @@ class MercadoPagoPayment {
             }
             
             $payment = json_decode($response, true);
-            
-            // Log the full API response for debugging
-            error_log("MercadoPago API Response (Pix): " . print_r($payment, true), 3, __DIR__ . '/../logs/mercadopago_api.log');
-            
+
             if ($httpCode !== 201) {
                 return [
                     'success' => false, 
@@ -295,9 +292,6 @@ class MercadoPagoPayment {
             }
             
             $payment = json_decode($response, true);
-            
-            // Log the full API response for debugging
-            error_log("MercadoPagoPayment API Response: " . print_r($payment, true), 3, __DIR__ . '/../logs/mercadopago_api.log');
             
             $userId = $paymentRecord['user_id'];
             $paymentPurpose = $paymentRecord['payment_purpose'];
