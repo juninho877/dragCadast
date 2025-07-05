@@ -872,43 +872,47 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (copyPixCodeBtn && pixCodeInput) {
             copyPixCodeBtn.addEventListener('click', function() {
-                pixCodeInput.select();
-                document.execCommand('copy');
-                
-                // Feedback visual
                 const originalText = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-                this.classList.add('btn-success');
-                this.classList.remove('btn-secondary');
                 
-                setTimeout(() => {
-                    this.innerHTML = originalText;
-                    this.classList.remove('btn-success');
-                    this.classList.add('btn-secondary');
-                }, 2000);
-            });
-        }
-        
-        // Copiar código Pix
-        const copyPixCodeBtn = document.getElementById('copyPixCodeBtn');
-        const pixCodeInput = document.getElementById('pixCodeInput');
-        
-        if (copyPixCodeBtn && pixCodeInput) {
-            copyPixCodeBtn.addEventListener('click', function() {
-                pixCodeInput.select();
-                document.execCommand('copy');
-                
-                // Feedback visual
-                const originalText = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-                this.classList.add('btn-success');
-                this.classList.remove('btn-secondary');
-                
-                setTimeout(() => {
-                    this.innerHTML = originalText;
-                    this.classList.remove('btn-success');
-                    this.classList.add('btn-secondary');
-                }, 2000);
+                // Usar a API moderna do Clipboard
+                navigator.clipboard.writeText(pixCodeInput.value)
+                    .then(() => {
+                        // Feedback visual de sucesso
+                        this.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+                        this.classList.add('btn-success');
+                        this.classList.remove('btn-secondary');
+                        
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.classList.remove('btn-success');
+                            this.classList.add('btn-secondary');
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        // Feedback visual de erro
+                        console.error('Erro ao copiar: ', err);
+                        this.innerHTML = '<i class="fas fa-times"></i> Erro!';
+                        this.classList.add('btn-danger');
+                        this.classList.remove('btn-secondary');
+                        
+                        // Tentar método alternativo
+                        try {
+                            pixCodeInput.select();
+                            document.execCommand('copy');
+                            this.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+                            this.classList.remove('btn-danger');
+                            this.classList.add('btn-success');
+                        } catch (e) {
+                            console.error('Método alternativo falhou: ', e);
+                        }
+                        
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.classList.remove('btn-danger');
+                            this.classList.remove('btn-success');
+                            this.classList.add('btn-secondary');
+                        }, 2000);
+                    });
             });
         }
         
