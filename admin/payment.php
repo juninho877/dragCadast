@@ -87,6 +87,7 @@ if ($paymentCreatedAt && (time() - $paymentCreatedAt > 1800)) { // 30 minutos em
     unset($_SESSION['payment_id']);
     unset($_SESSION['payment_months']);
     unset($_SESSION['payment_amount']);
+    unset($_SESSION['payment_pix_code']);
     $paymentInProgress = false;
 }
 
@@ -106,6 +107,7 @@ if (($isExpired || $isExpiredRedirect) && !$paymentInProgress && !isset($success
         $_SESSION['payment_created_at'] = time();
         $_SESSION['payment_months'] = 1;
         $_SESSION['payment_amount'] = $price1Month;
+        $_SESSION['payment_pix_code'] = $result['qr_code_text'] ?? '';
         
         $paymentInProgress = true;
     } else {
@@ -131,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $_SESSION['payment_created_at'] = time();
             $_SESSION['payment_months'] = $months;
             $_SESSION['payment_amount'] = $totalAmount;
+            $_SESSION['payment_pix_code'] = $result['qr_code_text'] ?? '';
             
             // Redirecionar para evitar reenvio do formulário
             header('Location: payment.php' . ($isExpiredRedirect ? '?expired=true' : ''));
@@ -145,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         unset($_SESSION['payment_id']);
         unset($_SESSION['payment_months']);
         unset($_SESSION['payment_amount']);
+        unset($_SESSION['payment_pix_code']);
         
         // Redirecionar para evitar reenvio do formulário
         header('Location: payment.php' . ($isExpiredRedirect ? '?expired=true' : ''));
@@ -272,6 +276,17 @@ include "includes/header.php";
                 <div class="qr-code-container">
                     <div class="qr-code">
                         <img src="<?php echo $_SESSION['payment_qr_code']; ?>" alt="QR Code de Pagamento">
+                    </div>
+                    <div class="pix-code-container">
+                        <p class="pix-code-label">Pix Copia e Cola:</p>
+                        <div class="pix-code-input-group">
+                            <input type="text" id="pixCodeInput" class="form-input" value="<?php echo htmlspecialchars($_SESSION['payment_pix_code'] ?? ''); ?>" readonly>
+                            <button type="button" class="btn btn-secondary" id="copyPixCodeBtn">
+                                <i class="fas fa-copy"></i>
+                                Copiar
+                            </button>
+                        </div>
+                        <p class="pix-code-help">Copie o código acima e cole no seu aplicativo bancário</p>
                     </div>
                     <div class="qr-code-info">
                         <p class="qr-code-amount">R$ <?php echo number_format($_SESSION['payment_amount'] ?? 0, 2, ',', '.'); ?></p>
@@ -689,6 +704,41 @@ include "includes/header.php";
         height: auto;
     }
     
+    .pix-code-container {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border-radius: var(--border-radius);
+        width: 100%;
+    }
+    
+    .pix-code-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+    }
+    
+    .pix-code-input-group {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .pix-code-input-group .form-input {
+        flex: 1;
+        font-family: monospace;
+        font-size: 0.75rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .pix-code-help {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+    
     .qr-code-info {
         flex: 1;
         display: flex;
@@ -889,6 +939,10 @@ include "includes/header.php";
     [data-theme="dark"] .qr-code-expiry {
         color: var(--warning-400);
     }
+    
+    [data-theme="dark"] .pix-code-container {
+        background: var(--bg-tertiary);
+    }
 </style>
 
 <script>
@@ -962,6 +1016,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Verificar pagamento via AJAX
     const checkPaymentBtn = document.getElementById('check-payment-btn');
     if (checkPaymentBtn) {
+        // Copiar código Pix
+        const copyPixCodeBtn = document.getElementById('copyPixCodeBtn');
+        const pixCodeInput = document.getElementById('pixCodeInput');
+        
+        if (copyPixCodeBtn && pixCodeInput) {
+            copyPixCodeBtn.addEventListener('click', function() {
+                pixCodeInput.select();
+                document.execCommand('copy');
+                
+                // Feedback visual
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+                this.classList.add('btn-success');
+                this.classList.remove('btn-secondary');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-secondary');
+                }, 2000);
+            });
+        }
+        
         checkPaymentBtn.addEventListener('click', function() {
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
