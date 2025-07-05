@@ -1013,9 +1013,6 @@ if ($isTempUser) {
                         ?>
                     </span>
                     <?php endif; ?>
-                    <span class="text-sm text-muted">
-                        <?php echo date('d/m/Y H:i'); ?>
-                    </span>
                 </div>
             </header>
 
