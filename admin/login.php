@@ -501,6 +501,15 @@ if (isset($_SESSION['register_error'])) {
             text-decoration: underline;
         }
         
+        /* Dark theme adjustment for toggle link */
+        [data-theme="dark"] .toggle-link {
+            color: var(--text-primary);
+        }
+        
+        [data-theme="dark"] .toggle-link:hover {
+            color: var(--primary-400);
+        }
+        
         .text-center {
             text-align: center;
         }
