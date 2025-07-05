@@ -17,6 +17,14 @@ $isExpired = false;
 $currentPage = basename($_SERVER['PHP_SELF']);
 $allowedPages = ['payment.php']; // Páginas permitidas para usuários expirados
 
+// Buscar dados do usuário logado
+$loggedInUserData = null;
+if ($isLoggedIn && isset($_SESSION["user_id"])) {
+    require_once __DIR__ . '/../classes/User.php';
+    $user = new User();
+    $loggedInUserData = $user->getUserById($_SESSION["user_id"]);
+}
+
 // Verificar expiração para usuários com sessão completa
 if ($isLoggedIn && isset($_SESSION["user_id"])) {
     require_once __DIR__ . '/../classes/User.php';
@@ -984,6 +992,27 @@ if ($isTempUser) {
                         Conta expirada
                     </span>
                     <?php endif; ?>
+                    <?php if ($isLoggedIn && isset($loggedInUserData) && $loggedInUserData): ?>
+                    <span class="expiry-date-badge">
+                        <i class="fas fa-calendar-alt"></i>
+                        <?php 
+                        if (!empty($loggedInUserData['expires_at'])) {
+                            $expiryDate = new DateTime($loggedInUserData['expires_at']);
+                            $today = new DateTime();
+                            $isExpired = $expiryDate < $today;
+                            
+                            if ($isExpired) {
+                                echo 'Expirado em ' . $expiryDate->format('d/m/Y');
+                            } else {
+                                $daysRemaining = $today->diff($expiryDate)->days;
+                                echo 'Expira em ' . $expiryDate->format('d/m/Y') . ' (' . $daysRemaining . ' dias)';
+                            }
+                        } else {
+                            echo 'Sem data de expiração';
+                        }
+                        ?>
+                    </span>
+                    <?php endif; ?>
                     <span class="text-sm text-muted">
                         <?php echo date('d/m/Y H:i'); ?>
                     </span>
@@ -1027,6 +1056,23 @@ if ($isTempUser) {
         margin-right: 1rem;
     }
     
+    .expiry-date-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        padding: 0.375rem 0.75rem;
+        border-radius: var(--border-radius-sm);
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-right: 1rem;
+    }
+    
+    .expiry-date-badge i {
+        color: var(--primary-500);
+    }
+    
     .account-expired-alert {
         display: flex;
         align-items: flex-start;
@@ -1061,6 +1107,15 @@ if ($isTempUser) {
     [data-theme="dark"] .account-expired-notice {
         background: rgba(239, 68, 68, 0.1);
         color: var(--danger-400);
+    }
+    
+    [data-theme="dark"] .expiry-date-badge {
+        background: rgba(51, 65, 85, 0.5);
+        color: var(--text-secondary);
+    }
+    
+    [data-theme="dark"] .expiry-date-badge i {
+        color: var(--primary-400);
     }
     
     [data-theme="dark"] .account-expired-alert {
