@@ -175,17 +175,21 @@ include "includes/header.php";
                 <div class="qr-code-container">
                     <div class="qr-code">
                         <img src="<?php echo $_SESSION['credit_payment_qr_code']; ?>" alt="QR Code de Pagamento">
-                    </div>
-                    <div class="pix-code-container">
-                        <p class="pix-code-label">Pix Copia e Cola:</p>
-                        <div class="pix-code-input-group">
-                            <input type="text" id="pixCodeInput" class="form-input" value="<?php echo htmlspecialchars($_SESSION['credit_payment_pix_code'] ?? ''); ?>" readonly>
-                            <button type="button" class="btn btn-secondary" id="copyPixCodeBtn">
-                                <i class="fas fa-copy"></i>
-                                Copiar
-                            </button>
+                        <div class="pix-code-container">
+                            <p class="pix-code-label">Pix Copia e Cola:</p>
+                            <div class="pix-code-input-group">
+                                <input type="text" id="pixCodeInput" class="form-input" value="<?php echo htmlspecialchars($_SESSION['credit_payment_pix_code'] ?? ''); ?>" readonly>
+                                <button type="button" class="btn btn-secondary" id="copyPixCodeBtn">
+                                    <i class="fas fa-copy"></i>
+                                    Copiar
+                                </button>
+                            </div>
+                            <?php if (!empty($_SESSION['credit_payment_pix_code'])): ?>
+                            <p class="pix-code-help">Copie o código acima e cole no seu aplicativo bancário</p>
+                            <?php else: ?>
+                            <p class="pix-code-help">Código Pix não disponível. Use o QR code para pagamento.</p>
+                            <?php endif; ?>
                         </div>
-                        <p class="pix-code-help">Copie o código acima e cole no seu aplicativo bancário</p>
                     </div>
                     <div class="qr-code-info">
                         <p class="qr-code-amount">R$ <?php echo number_format($_SESSION['credit_payment_amount'] ?? 0, 2, ',', '.'); ?></p>
@@ -574,6 +578,10 @@ include "includes/header.php";
     .qr-code {
         padding: 1.5rem;
         background: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
         border-radius: var(--border-radius);
         box-shadow: var(--shadow-md);
         text-align: center;
@@ -585,10 +593,7 @@ include "includes/header.php";
     }
     
     .pix-code-container {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: var(--bg-secondary);
-        border-radius: var(--border-radius);
+        margin-top: 0.75rem;
         width: 100%;
     }
     
@@ -801,7 +806,7 @@ include "includes/header.php";
     }
     
     [data-theme="dark"] .pix-code-container {
-        background: var(--bg-tertiary);
+        background: transparent;
     }
 </style>
 
