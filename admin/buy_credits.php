@@ -889,6 +889,29 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
+        // Copiar código Pix
+        const copyPixCodeBtn = document.getElementById('copyPixCodeBtn');
+        const pixCodeInput = document.getElementById('pixCodeInput');
+        
+        if (copyPixCodeBtn && pixCodeInput) {
+            copyPixCodeBtn.addEventListener('click', function() {
+                pixCodeInput.select();
+                document.execCommand('copy');
+                
+                // Feedback visual
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+                this.classList.add('btn-success');
+                this.classList.remove('btn-secondary');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-secondary');
+                }, 2000);
+            });
+        }
+        
         checkPaymentBtn.addEventListener('click', function() {
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';

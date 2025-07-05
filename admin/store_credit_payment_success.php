@@ -17,6 +17,7 @@ if (isset($_POST['message']) && !empty($_POST['message'])) {
     unset($_SESSION['credit_payment_id']);
     unset($_SESSION['credit_payment_amount']);
     unset($_SESSION['credit_payment_credits']);
+    unset($_SESSION['credit_payment_pix_code']);
     
     header('Content-Type: application/json');
     echo json_encode(['success' => true]);
