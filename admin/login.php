@@ -65,13 +65,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["register_action"])) {
     $confirmNewPassword = trim($_POST["confirm_new_password"]);
 
     if (empty($newUsername) || empty($newEmail) || empty($newPassword) || empty($confirmNewPassword)) {
-        $registerError = "Todos os campos são obrigatórios.";
+        $_SESSION['register_error'] = "Todos os campos são obrigatórios.";
     } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
-        $registerError = "Formato de e-mail inválido.";
+        $_SESSION['register_error'] = "Formato de e-mail inválido.";
     } elseif (strlen($newPassword) < 6) {
-        $registerError = "A senha deve ter pelo menos 6 caracteres.";
+        $_SESSION['register_error'] = "A senha deve ter pelo menos 6 caracteres.";
     } elseif ($newPassword !== $confirmNewPassword) {
-        $registerError = "As senhas não coincidem.";
+        $_SESSION['register_error'] = "As senhas não coincidem.";
     } else {
         $userData = [
             'username' => $newUsername,
@@ -86,14 +86,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["register_action"])) {
             $user = new User();
             $result = $user->createUser($userData);
             if ($result['success']) {
-                $registerSuccess = "Sua conta foi criada com sucesso! Você tem um teste grátis de 2 dias. Faça login para começar.";
+                $_SESSION['register_success'] = "Sua conta foi criada com sucesso! Você tem um teste grátis de 2 dias. Faça login para começar.";
             } else {
-                $registerError = $result['message'];
+                $_SESSION['register_error'] = $result['message'];
             }
         } catch (Exception $e) {
-            $registerError = "Erro ao criar usuário: " . $e->getMessage();
+            $_SESSION['register_error'] = "Erro ao criar usuário: " . $e->getMessage();
         }
     }
+    
+    // Redirecionar após o processamento para evitar reenvio do formulário
+    header("Location: login.php");
+    exit();
 }
 
 // Verificar se existe uma mensagem de sucesso de login após renovação
@@ -104,6 +108,17 @@ $loginMessage = isset($_SESSION['login_message']) ? $_SESSION['login_message'] :
 if (isset($_SESSION['login_success'])) {
     unset($_SESSION['login_success']);
     unset($_SESSION['login_message']);
+}
+
+// Recuperar mensagens de cadastro da sessão
+if (isset($_SESSION['register_success'])) {
+    $registerSuccess = $_SESSION['register_success'];
+    unset($_SESSION['register_success']);
+}
+
+if (isset($_SESSION['register_error'])) {
+    $registerError = $_SESSION['register_error'];
+    unset($_SESSION['register_error']);
 }
 ?>
 <!DOCTYPE html>
