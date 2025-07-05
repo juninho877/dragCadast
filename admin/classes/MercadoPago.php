@@ -193,7 +193,16 @@ class MercadoPago {
             }
             
             // Extrair dados do QR Code
-            $qrCodeBase64 = $payment['point_of_interaction']['transaction_data']['qr_code_base64'];
+            $qrCodeBase64 = $payment['point_of_interaction']['transaction_data']['qr_code_base64'] ?? '';
+            $qrCodeText = $payment['point_of_interaction']['transaction_data']['qr_code'] ?? '';
+            
+            if (empty($qrCodeBase64)) {
+                return [
+                    'success' => false, 
+                    'message' => 'Erro ao obter QR Code do Mercado Pago'
+                ];
+            }
+            
             $qrCode = "data:image/png;base64," . $qrCodeBase64;
             $qrCodeText = $payment['point_of_interaction']['transaction_data']['qr_code'] ?? '';
             
@@ -219,6 +228,7 @@ class MercadoPago {
                 'success' => true,
                 'payment_id' => $payment['id'],
                 'qr_code' => $qrCode,
+                'qr_code_text' => $qrCodeText,
                 'qr_code_text' => $qrCodeText,
                 'amount' => $amount
             ];
