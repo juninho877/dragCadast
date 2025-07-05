@@ -6,6 +6,10 @@ session_start();
 require_once 'config/database.php';
 require_once 'classes/User.php';
 
+// Variáveis para o registro
+$registerError = "";
+$registerSuccess = "";
+
 // Inicializar banco de dados (criar tabelas se não existirem)
 try {
     $db = Database::getInstance();
@@ -50,6 +54,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     } catch (Exception $e) {
         $erro = "Erro interno do sistema. Tente novamente.";
+    }
+}
+
+// Processar formulário de registro
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["register_action"])) {
+    $newUsername = trim($_POST["new_username"]);
+    $newEmail = trim($_POST["new_email"]);
+    $newPassword = trim($_POST["new_password"]);
+    $confirmNewPassword = trim($_POST["confirm_new_password"]);
+
+    if (empty($newUsername) || empty($newEmail) || empty($newPassword) || empty($confirmNewPassword)) {
+        $registerError = "Todos os campos são obrigatórios.";
+    } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+        $registerError = "Formato de e-mail inválido.";
+    } elseif (strlen($newPassword) < 6) {
+        $registerError = "A senha deve ter pelo menos 6 caracteres.";
+    } elseif ($newPassword !== $confirmNewPassword) {
+        $registerError = "As senhas não coincidem.";
+    } else {
+        $userData = [
+            'username' => $newUsername,
+            'email' => $newEmail,
+            'password' => $newPassword,
+            'role' => 'user', // Novo usuário será do tipo 'user'
+            'status' => 'active', // Ativo para o período de teste
+            'expires_at' => date('Y-m-d', strtotime('+2 days')) // Teste grátis de 2 dias
+        ];
+
+        try {
+            $user = new User();
+            $result = $user->createUser($userData);
+            if ($result['success']) {
+                $registerSuccess = "Sua conta foi criada com sucesso! Você tem um teste grátis de 2 dias. Faça login para começar.";
+            } else {
+                $registerError = $result['message'];
+            }
+        } catch (Exception $e) {
+            $registerError = "Erro ao criar usuário: " . $e->getMessage();
+        }
     }
 }
 
@@ -414,6 +457,43 @@ if (isset($_SESSION['login_success'])) {
             color: var(--text-secondary);
         }
 
+        /* Loading state */
+        .submit-btn.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .submit-btn.loading::after {
+            content: '';
+            width: 18px; /* Reduzido de 20px */
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 0.5rem;
+        }
+        
+        .toggle-link {
+            color: var(--primary-500);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .toggle-link:hover {
+            color: var(--primary-600);
+            text-decoration: underline;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .mt-4 {
+            margin-top: 1rem;
+        }
+
         /* Animations */
         @keyframes slideIn {
             from {
@@ -439,6 +519,11 @@ if (isset($_SESSION['login_success'])) {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-5px); }
             75% { transform: translateX(5px); }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         /* Responsive */
@@ -482,28 +567,6 @@ if (isset($_SESSION['login_success'])) {
             outline: 2px solid rgba(255, 255, 255, 0.5);
             outline-offset: 2px;
         }
-
-        /* Loading state */
-        .submit-btn.loading {
-            pointer-events: none;
-            opacity: 0.8;
-        }
-
-        .submit-btn.loading::after {
-            content: '';
-            width: 18px; /* Reduzido de 20px */
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 0.5rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body>
@@ -521,7 +584,7 @@ if (isset($_SESSION['login_success'])) {
                 <p class="login-subtitle">Jogos Filmes e Series</p>
             </div>
 
-            <div class="login-form">
+            <div class="login-form" id="loginFormContainer">
                 <?php if ($loginSuccess): ?>
                 <div class="success-message">
                     <i class="fas fa-check-circle"></i>
@@ -570,6 +633,88 @@ if (isset($_SESSION['login_success'])) {
                         </div>
                     <?php endif; ?>
                 </form>
+                <div class="text-center mt-4">
+                    <a href="#" id="showRegisterForm" class="toggle-link">Não tem uma conta? Cadastre-se!</a>
+                </div>
+            </div>
+            
+            <div class="login-form" id="registerFormContainer" style="display: none;">
+                <?php if (isset($registerSuccess) && !empty($registerSuccess)): ?>
+                <div class="success-message">
+                    <i class="fas fa-check-circle"></i>
+                    <?php echo $registerSuccess; ?>
+                </div>
+                <?php endif; ?>
+                
+                <div class="welcome-text">
+                    <h3>Crie sua conta grátis!</h3>
+                    <p>Teste o sistema por 2 dias sem compromisso.</p>
+                </div>
+
+                <form method="POST" action="login.php" id="registerForm">
+                    <input type="hidden" name="register_action" value="1">
+
+                    <div class="form-group">
+                        <label for="new_username" class="form-label">
+                            <i class="fas fa-user"></i>
+                            Nome de Usuário
+                        </label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-user input-icon-left"></i>
+                            <input type="text" id="new_username" name="new_username" class="form-input" placeholder="Escolha um nome de usuário" required autocomplete="new-username">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_email" class="form-label">
+                            <i class="fas fa-envelope"></i>
+                            Email
+                        </label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-envelope input-icon-left"></i>
+                            <input type="email" id="new_email" name="new_email" class="form-input" placeholder="Seu melhor e-mail" required autocomplete="email">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new_password" class="form-label">
+                            <i class="fas fa-lock"></i>
+                            Senha
+                        </label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-lock input-icon-left"></i>
+                            <input type="password" id="new_password" name="new_password" class="form-input" placeholder="Mínimo de 6 caracteres" required autocomplete="new-password">
+                            <i class="fas fa-eye password-toggle-icon" id="toggleNewPassword"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirm_new_password" class="form-label">
+                            <i class="fas fa-check"></i>
+                            Confirmar Senha
+                        </label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-check input-icon-left"></i>
+                            <input type="password" id="confirm_new_password" name="confirm_new_password" class="form-input" placeholder="Repita a senha" required autocomplete="new-password">
+                            <i class="fas fa-eye password-toggle-icon" id="toggleConfirmNewPassword"></i>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="registerSubmitBtn">
+                        <i class="fas fa-user-plus"></i>
+                        Cadastrar
+                    </button>
+
+                    <?php if (isset($registerError) && !empty($registerError)): ?>
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <?php echo $registerError; ?>
+                        </div>
+                    <?php endif; ?>
+                </form>
+                <div class="text-center mt-4">
+                    <a href="#" id="showLoginForm" class="toggle-link">Já tem uma conta? Faça login!</a>
+                </div>
             </div>
         </div>
         
@@ -629,6 +774,79 @@ if (isset($_SESSION['login_success'])) {
             submitBtn.querySelector('span').textContent = ' Entrando...';
         });
 
+        // Form Toggling
+        const loginFormContainer = document.getElementById('loginFormContainer');
+        const registerFormContainer = document.getElementById('registerFormContainer');
+        const showRegisterFormBtn = document.getElementById('showRegisterForm');
+        const showLoginFormBtn = document.getElementById('showLoginForm');
+
+        if (showRegisterFormBtn) {
+            showRegisterFormBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                loginFormContainer.style.display = 'none';
+                registerFormContainer.style.display = 'block';
+                // Clear login form errors when switching
+                const loginErrorDiv = loginFormContainer.querySelector('.error-message');
+                if (loginErrorDiv) loginErrorDiv.style.display = 'none';
+            });
+        }
+
+        if (showLoginFormBtn) {
+            showLoginFormBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                registerFormContainer.style.display = 'none';
+                loginFormContainer.style.display = 'block';
+                // Clear register form errors when switching
+                const registerErrorDiv = registerFormContainer.querySelector('.error-message');
+                if (registerErrorDiv) registerErrorDiv.style.display = 'none';
+            });
+        }
+
+        // Password toggle for new registration fields
+        const toggleNewPassword = document.getElementById('toggleNewPassword');
+        const newPasswordInput = document.getElementById('new_password');
+        const toggleConfirmNewPassword = document.getElementById('toggleConfirmNewPassword');
+        const confirmNewPasswordInput = document.getElementById('confirm_new_password');
+
+        function setupPasswordToggle(toggleBtn, passwordInput) {
+            if (toggleBtn && passwordInput) {
+                toggleBtn.addEventListener('click', function() {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                    passwordInput.setAttribute('type', type);
+                    this.classList.toggle('fa-eye');
+                    this.classList.toggle('fa-eye-slash');
+                });
+            }
+        }
+
+        setupPasswordToggle(toggleNewPassword, newPasswordInput);
+        setupPasswordToggle(toggleConfirmNewPassword, confirmNewPasswordInput);
+
+        // Handle initial display based on PHP messages (e.g., if registration failed, stay on register form)
+        <?php if (isset($registerError) && !empty($registerError)): ?>
+            loginFormContainer.style.display = 'none';
+            registerFormContainer.style.display = 'block';
+        <?php elseif (isset($registerSuccess) && !empty($registerSuccess)): ?>
+            loginFormContainer.style.display = 'block';
+            registerFormContainer.style.display = 'none';
+        <?php endif; ?>
+
+        // Form submission loading state for register form
+        const registerForm = document.getElementById('registerForm');
+        const registerSubmitBtn = document.getElementById('registerSubmitBtn');
+
+        if (registerForm && registerSubmitBtn) {
+            registerForm.addEventListener('submit', function(e) {
+                registerSubmitBtn.classList.add('loading');
+                const btnTextSpan = registerSubmitBtn.querySelector('span');
+                if (btnTextSpan) {
+                    btnTextSpan.textContent = ' Cadastrando...';
+                } else {
+                    registerSubmitBtn.innerHTML = `<i class="fas fa-user-plus"></i><span> Cadastrando...</span>`;
+                }
+            });
+        }
+
         // Lógica para mostrar/esconder senha
         document.addEventListener('DOMContentLoaded', function() {
             const togglePassword = document.getElementById('togglePassword');
@@ -647,7 +865,7 @@ if (isset($_SESSION['login_success'])) {
             // Auto-focus no campo de usuário
             const usernameInput = document.getElementById('username');
             if (usernameInput) {
-                usernameInput.focus();
+                setTimeout(() => usernameInput.focus(), 100);
             }
 
             // Ajuste para o texto do botão no loading state
