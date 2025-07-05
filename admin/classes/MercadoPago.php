@@ -198,6 +198,7 @@ class MercadoPago {
             // Extrair dados do QR Code
             $qrCodeBase64 = $payment['point_of_interaction']['transaction_data']['qr_code_base64'];
             $qrCode = "data:image/png;base64," . $qrCodeBase64;
+            $qrCodeText = $payment['point_of_interaction']['transaction_data']['qr_code'] ?? '';
             
             // Registrar o pagamento no banco de dados
             $stmt = $this->db->prepare("
@@ -221,6 +222,7 @@ class MercadoPago {
                 'success' => true,
                 'payment_id' => $payment['id'],
                 'qr_code' => $qrCode,
+                'qr_code_text' => $qrCodeText,
                 'amount' => $amount
             ];
             
