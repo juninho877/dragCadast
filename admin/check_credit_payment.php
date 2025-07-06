@@ -10,7 +10,7 @@ require_once 'classes/User.php';
 require_once 'classes/MercadoPagoPayment.php';
 require_once 'classes/CreditTransaction.php';
 
-// Verificar se os parâmetros necessários foram fornecidos
+// Verificar se o payment_id foi fornecido e não está vazio
 if (empty($_POST['payment_id'])) {
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => 'ID do pagamento não fornecido']);

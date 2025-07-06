@@ -917,6 +917,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         checkPaymentBtn.addEventListener('click', function() {
+            const paymentId = '<?php echo urlencode($_SESSION['credit_payment_id'] ?? ''); ?>';
+            
+            if (!paymentId) {
+                Swal.fire({
+                    title: 'Erro!',
+                    text: 'ID do pagamento não encontrado. Tente gerar um novo QR Code.',
+                    icon: 'error',
+                    background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                    color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                });
+                return;
+            }
+            
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
             
@@ -928,7 +941,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'payment_id=<?php echo urlencode($_SESSION['credit_payment_id'] ?? ''); ?>&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>'
+                body: `payment_id=${paymentId}&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>`
             })
             .then(response => response.json())
             .then(data => {
