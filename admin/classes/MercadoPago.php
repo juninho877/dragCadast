@@ -185,7 +185,7 @@ class MercadoPago {
                 ];
             }
             
-            if (!isset($payment['id']) || !isset($payment['point_of_interaction']['transaction_data']['qr_code_base64'])) {
+            if (empty($payment['id']) || empty($payment['point_of_interaction']['transaction_data']['qr_code_base64'])) {
                 return [
                     'success' => false, 
                     'message' => 'Resposta inválida do Mercado Pago'
