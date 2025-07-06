@@ -1044,13 +1044,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-refresh para verificar pagamento a cada 30 segundos
     <?php if ($paymentInProgress && !$qrCodeExpired): ?>
     const checkPaymentInterval = setInterval(function() {
+        const paymentId = '<?php echo urlencode($_SESSION['credit_payment_id'] ?? ''); ?>';
+        if (!paymentId) {
+            clearInterval(checkPaymentInterval);
+            return;
+        }
+        
         // Fazer verificação via AJAX em vez de submeter o formulário
         fetch('check_credit_payment.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'payment_id=<?php echo urlencode($_SESSION['credit_payment_id'] ?? ''); ?>&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>'
+            body: `payment_id=${paymentId}&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>`
         })
         .then(response => response.json())
         .then(data => {
