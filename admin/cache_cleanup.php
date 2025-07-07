@@ -2,13 +2,14 @@
 /**
  * 🧹 Script de limpeza automática do cache
  * 
- * EXECUÇÃO:
+ * EXECUÇÃO: 
  * - Via cron job: 0 0 * * * /usr/bin/php /caminho/para/admin/cache_cleanup.php
  * - Via web (apenas admins): https://seusite.com/admin/cache_cleanup.php
  * - Manual: php cache_cleanup.php
  */
 
 require_once 'classes/BannerCache.php';
+require_once 'classes/User.php';
 
 // Verificar se é execução via linha de comando ou web
 $isCLI = php_sapi_name() === 'cli';
@@ -39,8 +40,13 @@ try {
     if ($isDailyCleanup) {
         // 🧹 LIMPEZA DIÁRIA COMPLETA
         error_log("🧹 INICIANDO LIMPEZA DIÁRIA COMPLETA DO CACHE - " . date('Y-m-d H:i:s'));
+        error_log("🔄 INICIANDO RESET DOS CONTADORES DE TROCA DE IMAGENS - " . date('Y-m-d H:i:s'));
         
         $result = $bannerCache->dailyCleanup();
+        
+        // Reset dos contadores de troca de imagens para todos os usuários
+        $user = new User();
+        $resetResult = $user->resetAllImageChangeCounts();
         
         if ($result) {
             $message = "Limpeza diária completa realizada com sucesso";
@@ -49,6 +55,14 @@ try {
             $message = "Erro na limpeza diária";
             $logMessage = "❌ ERRO NA LIMPEZA DIÁRIA";
         }
+
+        // Adicionar informações sobre o reset dos contadores
+        if ($resetResult['success']) {
+            $message .= " e contadores de troca de imagens resetados";
+            $logMessage .= " | ✅ CONTADORES DE TROCA DE IMAGENS RESETADOS - {$resetResult['affected_rows']} usuários";
+        } else {
+            $logMessage .= " | ❌ ERRO AO RESETAR CONTADORES DE TROCA DE IMAGENS: {$resetResult['message']}";
+        }
         
         error_log($logMessage);
         
@@ -56,7 +70,10 @@ try {
             'success' => $result !== false,
             'message' => $message,
             'type' => 'daily_cleanup',
-            'details' => $result,
+            'details' => [
+                'cache' => $result,
+                'image_counters' => $resetResult
+            ],
             'timestamp' => date('Y-m-d H:i:s')
         ];
     } else {
@@ -86,9 +103,13 @@ try {
         if (isset($response['details'])) {
             echo "Detalhes:\n";
             echo "  - Total removido: " . $response['details']['total_removed'] . " arquivos\n";
-            echo "  - Expirados: " . $response['details']['expired_removed'] . "\n";
-            echo "  - Todo cache: " . $response['details']['all_cache_removed'] . "\n";
-            echo "  - Antigos: " . $response['details']['old_removed'] . "\n";
+            echo "  - Expirados: " . $response['details']['cache']['expired_removed'] . "\n";
+            echo "  - Todo cache: " . $response['details']['cache']['all_cache_removed'] . "\n";
+            echo "  - Antigos: " . $response['details']['cache']['old_removed'] . "\n";
+            
+            if (isset($response['details']['image_counters'])) {
+                echo "  - Contadores de imagens resetados: " . $response['details']['image_counters']['affected_rows'] . " usuários\n";
+            }
         } else {
             echo "Arquivos removidos: " . $response['removed_files'] . "\n";
         }
