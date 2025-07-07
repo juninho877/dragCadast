@@ -332,6 +332,29 @@ class Database {
                 ");
             }
             
+            // Verificar se as colunas de limites de troca de imagens existem
+            $stmt = $this->connection->prepare("
+                SELECT COUNT(*) as column_exists 
+                FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'logo_change_limit'
+            ");
+            $stmt->execute([$this->dbname]);
+            $result = $stmt->fetch();
+            
+            if ($result['column_exists'] == 0) {
+                // Adicionar colunas para limites e contadores de troca de imagens
+                $this->connection->exec("
+                    ALTER TABLE usuarios 
+                    ADD COLUMN logo_change_limit INT DEFAULT 3 AFTER credits,
+                    ADD COLUMN movie_logo_change_limit INT DEFAULT 3 AFTER logo_change_limit,
+                    ADD COLUMN background_change_limit INT DEFAULT 3 AFTER movie_logo_change_limit,
+                    ADD COLUMN logo_changes_today INT DEFAULT 0 AFTER background_change_limit,
+                    ADD COLUMN movie_logo_changes_today INT DEFAULT 0 AFTER logo_changes_today,
+                    ADD COLUMN background_changes_today INT DEFAULT 0 AFTER movie_logo_changes_today,
+                    ADD COLUMN last_image_change_reset_date DATE DEFAULT NULL AFTER background_changes_today
+                ");
+            }
+            
         } catch (PDOException $e) {
             error_log("Erro ao verificar/adicionar colunas: " . $e->getMessage());
         }

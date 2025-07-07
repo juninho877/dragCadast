@@ -46,7 +46,10 @@ class User {
     // Listar todos os usuários com filtros
     public function getAllUsers($filters = []) {
         $sql = "
-            SELECT id, username, email, role, status, expires_at, credits, parent_user_id, created_at, last_login 
+            SELECT id, username, email, role, status, expires_at, credits, parent_user_id, created_at, last_login,
+                   logo_change_limit, movie_logo_change_limit, background_change_limit,
+                   logo_changes_today, movie_logo_changes_today, background_changes_today,
+                   last_image_change_reset_date
             FROM usuarios 
             WHERE 1=1
         ";
@@ -87,7 +90,10 @@ class User {
     // Buscar usuário por ID
     public function getUserById($id) {
         $stmt = $this->db->prepare("
-            SELECT id, username, email, role, status, expires_at, credits, parent_user_id, created_at, last_login 
+            SELECT id, username, email, role, status, expires_at, credits, parent_user_id, created_at, last_login,
+                   logo_change_limit, movie_logo_change_limit, background_change_limit,
+                   logo_changes_today, movie_logo_changes_today, background_changes_today,
+                   last_image_change_reset_date
             FROM usuarios 
             WHERE id = ?
         ");
@@ -401,7 +407,10 @@ class User {
     // Obter usuários criados por um master com filtros
     public function getUsersByParentId($parentId, $filters = []) {
         $sql = "
-            SELECT id, username, email, role, status, expires_at, created_at, last_login 
+            SELECT id, username, email, role, status, expires_at, created_at, last_login,
+                   logo_change_limit, movie_logo_change_limit, background_change_limit,
+                   logo_changes_today, movie_logo_changes_today, background_changes_today,
+                   last_image_change_reset_date
             FROM usuarios 
             WHERE parent_user_id = ?
         ";
@@ -489,6 +498,263 @@ class User {
             error_log("Erro ao comprar créditos: " . $e->getMessage());
             $this->db->rollBack();
             return ['success' => false, 'message' => 'Erro ao comprar créditos: ' . $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Atualiza os limites de troca de imagens para um usuário
+     * 
+     * @param int $userId ID do usuário
+     * @param int $logoLimit Limite de trocas de logo por dia
+     * @param int $movieLogoLimit Limite de trocas de logo de filme por dia
+     * @param int $backgroundLimit Limite de trocas de fundo por dia
+     * @return array Resultado da operação
+     */
+    public function updateImageChangeLimits($userId, $logoLimit, $movieLogoLimit, $backgroundLimit) {
+        try {
+            // Validar limites
+            $logoLimit = max(0, intval($logoLimit));
+            $movieLogoLimit = max(0, intval($movieLogoLimit));
+            $backgroundLimit = max(0, intval($backgroundLimit));
+            
+            $stmt = $this->db->prepare("
+                UPDATE usuarios 
+                SET logo_change_limit = ?,
+                    movie_logo_change_limit = ?,
+                    background_change_limit = ?
+                WHERE id = ?
+            ");
+            
+            $stmt->execute([$logoLimit, $movieLogoLimit, $backgroundLimit, $userId]);
+            
+            return [
+                'success' => true, 
+                'message' => 'Limites de troca de imagens atualizados com sucesso',
+                'limits' => [
+                    'logo' => $logoLimit,
+                    'movie_logo' => $movieLogoLimit,
+                    'background' => $backgroundLimit
+                ]
+            ];
+        } catch (PDOException $e) {
+            error_log("Erro ao atualizar limites de troca de imagens: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Erro ao atualizar limites: ' . $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Incrementa o contador de trocas de imagem para um usuário e tipo específico
+     * Também verifica se é um novo dia e reseta os contadores se necessário
+     * 
+     * @param int $userId ID do usuário
+     * @param string $imageType Tipo de imagem ('logo', 'movie_logo', 'background')
+     * @return array Resultado da operação com contadores e limites atualizados
+     */
+    public function incrementImageChangeCount($userId, $imageType) {
+        try {
+            // Buscar dados atuais do usuário
+            $stmt = $this->db->prepare("
+                SELECT role, last_image_change_reset_date, 
+                       logo_changes_today, movie_logo_changes_today, background_changes_today,
+                       logo_change_limit, movie_logo_change_limit, background_change_limit
+                FROM usuarios 
+                WHERE id = ?
+            ");
+            $stmt->execute([$userId]);
+            $userData = $stmt->fetch();
+            
+            if (!$userData) {
+                return ['success' => false, 'message' => 'Usuário não encontrado'];
+            }
+            
+            // Se o usuário for admin, não aplicar limites
+            if ($userData['role'] === 'admin') {
+                return [
+                    'success' => true,
+                    'message' => 'Administradores não têm limites de troca de imagens',
+                    'is_admin' => true,
+                    'counts' => [
+                        'logo' => 0,
+                        'movie_logo' => 0,
+                        'background' => 0
+                    ],
+                    'limits' => [
+                        'logo' => -1,
+                        'movie_logo' => -1,
+                        'background' => -1
+                    ]
+                ];
+            }
+            
+            // Verificar se é um novo dia
+            $today = date('Y-m-d');
+            $lastResetDate = $userData['last_image_change_reset_date'];
+            $needsReset = ($lastResetDate === null || $lastResetDate < $today);
+            
+            // Se for um novo dia, resetar todos os contadores
+            if ($needsReset) {
+                $stmt = $this->db->prepare("
+                    UPDATE usuarios 
+                    SET logo_changes_today = 0,
+                        movie_logo_changes_today = 0,
+                        background_changes_today = 0,
+                        last_image_change_reset_date = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$today, $userId]);
+                
+                // Resetar contadores locais
+                $userData['logo_changes_today'] = 0;
+                $userData['movie_logo_changes_today'] = 0;
+                $userData['background_changes_today'] = 0;
+            }
+            
+            // Mapear tipo de imagem para coluna do banco
+            $columnMap = [
+                'logo' => 'logo_changes_today',
+                'movie_logo' => 'movie_logo_changes_today',
+                'background' => 'background_changes_today'
+            ];
+            
+            $limitMap = [
+                'logo' => 'logo_change_limit',
+                'movie_logo' => 'movie_logo_change_limit',
+                'background' => 'background_change_limit'
+            ];
+            
+            // Verificar se o tipo de imagem é válido
+            if (!isset($columnMap[$imageType])) {
+                return ['success' => false, 'message' => 'Tipo de imagem inválido'];
+            }
+            
+            $column = $columnMap[$imageType];
+            $limitColumn = $limitMap[$imageType];
+            
+            // Verificar se o usuário já atingiu o limite
+            $currentCount = (int)$userData[$column];
+            $limit = (int)$userData[$limitColumn];
+            
+            if ($currentCount >= $limit) {
+                return [
+                    'success' => false,
+                    'message' => 'Você atingiu o limite diário de trocas para este tipo de imagem',
+                    'counts' => [
+                        'logo' => (int)$userData['logo_changes_today'],
+                        'movie_logo' => (int)$userData['movie_logo_changes_today'],
+                        'background' => (int)$userData['background_changes_today']
+                    ],
+                    'limits' => [
+                        'logo' => (int)$userData['logo_change_limit'],
+                        'movie_logo' => (int)$userData['movie_logo_change_limit'],
+                        'background' => (int)$userData['background_change_limit']
+                    ]
+                ];
+            }
+            
+            // Incrementar o contador
+            $stmt = $this->db->prepare("
+                UPDATE usuarios 
+                SET $column = $column + 1,
+                    last_image_change_reset_date = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$today, $userId]);
+            
+            // Atualizar contador local
+            $userData[$column]++;
+            
+            return [
+                'success' => true,
+                'message' => 'Contador incrementado com sucesso',
+                'counts' => [
+                    'logo' => (int)$userData['logo_changes_today'],
+                    'movie_logo' => (int)$userData['movie_logo_changes_today'],
+                    'background' => (int)$userData['background_changes_today']
+                ],
+                'limits' => [
+                    'logo' => (int)$userData['logo_change_limit'],
+                    'movie_logo' => (int)$userData['movie_logo_change_limit'],
+                    'background' => (int)$userData['background_change_limit']
+                ]
+            ];
+        } catch (PDOException $e) {
+            error_log("Erro ao incrementar contador de trocas de imagem: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Erro ao atualizar contador: ' . $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Reseta todos os contadores diários de troca de imagens para todos os usuários
+     * 
+     * @return array Resultado da operação
+     */
+    public function resetAllImageChangeCounts() {
+        try {
+            $today = date('Y-m-d');
+            
+            $stmt = $this->db->prepare("
+                UPDATE usuarios 
+                SET logo_changes_today = 0,
+                    movie_logo_changes_today = 0,
+                    background_changes_today = 0,
+                    last_image_change_reset_date = ?
+                WHERE role IN ('user', 'master')
+            ");
+            $stmt->execute([$today]);
+            
+            $affectedRows = $stmt->rowCount();
+            
+            return [
+                'success' => true,
+                'message' => "Contadores resetados com sucesso para $affectedRows usuários",
+                'affected_rows' => $affectedRows
+            ];
+        } catch (PDOException $e) {
+            error_log("Erro ao resetar contadores de trocas de imagem: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Erro ao resetar contadores: ' . $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Atualiza os limites de troca de imagens para todos os usuários
+     * 
+     * @param int $logoLimit Limite de trocas de logo por dia
+     * @param int $movieLogoLimit Limite de trocas de logo de filme por dia
+     * @param int $backgroundLimit Limite de trocas de fundo por dia
+     * @return array Resultado da operação
+     */
+    public function updateAllImageChangeLimits($logoLimit, $movieLogoLimit, $backgroundLimit) {
+        try {
+            // Validar limites
+            $logoLimit = max(0, intval($logoLimit));
+            $movieLogoLimit = max(0, intval($movieLogoLimit));
+            $backgroundLimit = max(0, intval($backgroundLimit));
+            
+            $stmt = $this->db->prepare("
+                UPDATE usuarios 
+                SET logo_change_limit = ?,
+                    movie_logo_change_limit = ?,
+                    background_change_limit = ?
+                WHERE role IN ('user', 'master')
+            ");
+            
+            $stmt->execute([$logoLimit, $movieLogoLimit, $backgroundLimit]);
+            
+            $affectedRows = $stmt->rowCount();
+            
+            return [
+                'success' => true,
+                'message' => "Limites atualizados com sucesso para $affectedRows usuários",
+                'affected_rows' => $affectedRows,
+                'limits' => [
+                    'logo' => $logoLimit,
+                    'movie_logo' => $movieLogoLimit,
+                    'background' => $backgroundLimit
+                ]
+            ];
+        } catch (PDOException $e) {
+            error_log("Erro ao atualizar limites de troca de imagens: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Erro ao atualizar limites: ' . $e->getMessage()];
         }
     }
 }

@@ -8,9 +8,11 @@ if (!isset($_SESSION["usuario"])) {
 // Incluir classes necessárias
 require_once 'classes/UserImage.php';
 require_once 'classes/BannerCache.php';
+require_once 'classes/User.php';
 
 $userImage = new UserImage();
 $bannerCache = new BannerCache();
+$user = new User();
 $userId = $_SESSION['user_id'];
 
 $logo_types = [
@@ -25,6 +27,22 @@ $errorMessage = '';
 if ($_SERVER['REQUEST_METHOD'] == "POST") {
     $posted_logo_type = $_POST['logo_type'] ?? null;
     if ($posted_logo_type && isset($logo_types[$posted_logo_type])) {
+        // Verificar limites de troca de imagem (apenas para usuários não-admin)
+        if ($_SESSION["role"] !== 'admin') {
+            $result = $user->incrementImageChangeCount($userId, 'movie_logo');
+            if (!$result['success']) {
+                $errorMessage = $result['message'];
+                
+                // Redirecionar após POST para evitar reenvio
+                $_SESSION['flash_message'] = $errorMessage;
+                $_SESSION['flash_type'] = 'error';
+                
+                // Redirecionar para a mesma página (GET)
+                header("Location: logo_movie.php");
+                exit();
+            }
+        }
+        
         $fixed_filename_base = $logo_types[$posted_logo_type]['fixed_filename'];
 
         if (isset($_POST['upload']) && isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
@@ -115,6 +133,18 @@ $currentConfig = $userImage->getUserImageConfig($userId, $current_logo_key);
 $methord = "Não Definido";
 $imageFilex = '';
 $showPreview = false;
+
+// Obter informações de limites de troca de imagem para o usuário
+$imageLimits = null;
+if ($_SESSION["role"] !== 'admin') {
+    $userData = $user->getUserById($userId);
+    if ($userData) {
+        $imageLimits = [
+            'movie_logo_changes_today' => $userData['movie_logo_changes_today'],
+            'movie_logo_change_limit' => $userData['movie_logo_change_limit']
+        ];
+    }
+}
 
 if ($currentConfig) {
     $uploadType = $currentConfig['upload_type'];
@@ -241,6 +271,35 @@ include "includes/header.php";
         </div>
     </div>
 </div>
+
+<?php if ($imageLimits): ?>
+<div class="card mt-6">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-info-circle text-primary-500 mr-2"></i>
+            Limites de Troca
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="flex items-center gap-3">
+            <div class="limit-indicator <?php echo $imageLimits['movie_logo_changes_today'] >= $imageLimits['movie_logo_change_limit'] ? 'limit-reached' : ''; ?>">
+                <div class="limit-count"><?php echo $imageLimits['movie_logo_changes_today']; ?>/<?php echo $imageLimits['movie_logo_change_limit']; ?></div>
+                <div class="limit-label">trocas hoje</div>
+            </div>
+            <div class="limit-info">
+                <p class="text-sm">
+                    <?php if ($imageLimits['movie_logo_changes_today'] >= $imageLimits['movie_logo_change_limit']): ?>
+                        <span class="text-danger-500">Você atingiu o limite diário de trocas de logo de filmes/séries.</span>
+                    <?php else: ?>
+                        <span class="text-success-500">Você ainda pode trocar o logo <?php echo $imageLimits['movie_logo_change_limit'] - $imageLimits['movie_logo_changes_today']; ?> vezes hoje.</span>
+                    <?php endif; ?>
+                </p>
+                <p class="text-xs text-muted mt-1">Os contadores são resetados diariamente à meia-noite.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Cache Info Alert -->
 <?php if (!empty($successMessage) && strpos($successMessage, 'Cache') !== false): ?>
@@ -479,6 +538,48 @@ include "includes/header.php";
     .mt-1 {
         margin-top: 0.25rem;
     }
+    
+    .limit-indicator {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: var(--success-50);
+        border: 2px solid var(--success-500);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: var(--success-600);
+        flex-shrink: 0;
+    }
+    
+    .limit-indicator.limit-reached {
+        background: var(--danger-50);
+        border-color: var(--danger-500);
+        color: var(--danger-600);
+    }
+    
+    .limit-count {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+    
+    .limit-label {
+        font-size: 0.75rem;
+        text-align: center;
+    }
+    
+    .limit-info {
+        flex: 1;
+    }
+    
+    .text-danger-500 {
+        color: var(--danger-500);
+    }
+    
+    .text-success-500 {
+        color: var(--success-500);
+    }
 
     @keyframes fadeIn {
         from {
@@ -514,6 +615,26 @@ include "includes/header.php";
 
     [data-theme="dark"] .text-success-700 {
         color: var(--success-300);
+    }
+    
+    [data-theme="dark"] .limit-indicator {
+        background: rgba(34, 197, 94, 0.1);
+        border-color: var(--success-400);
+        color: var(--success-400);
+    }
+    
+    [data-theme="dark"] .limit-indicator.limit-reached {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: var(--danger-400);
+        color: var(--danger-400);
+    }
+    
+    [data-theme="dark"] .text-danger-500 {
+        color: var(--danger-400);
+    }
+    
+    [data-theme="dark"] .text-success-500 {
+        color: var(--success-400);
     }
 </style>
 
