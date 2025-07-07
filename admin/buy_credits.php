@@ -63,12 +63,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $result = $mercadoPago->createCreditPayment($userId, $description, $totalAmount, $creditsToBuy, 1);
         
         if ($result['success']) {
-            $_SESSION['credit_payment_qr_code'] = $result['qr_code'];
-            $_SESSION['credit_payment_id'] = $result['payment_id'];
-            $_SESSION['credit_payment_created_at'] = time();
-            $_SESSION['credit_payment_amount'] = $totalAmount;
-            $_SESSION['credit_payment_credits'] = $creditsToBuy;
-            $_SESSION['credit_payment_pix_code'] = $result['qr_code_text'] ?? '';
+            // Store payment information in session
+            $_SESSION['credit_payment_qr_code'] = $result['qr_code']; // QR code image
+            $_SESSION['credit_payment_id'] = $result['preference_id']; // Use preference_id as payment_id
+            $_SESSION['credit_payment_created_at'] = time(); // Current timestamp
+            $_SESSION['credit_payment_amount'] = $totalAmount; // Amount to be paid
+            $_SESSION['credit_payment_credits'] = $creditsToBuy; // Credits to be purchased
+            $_SESSION['credit_payment_pix_code'] = $result['qr_code_text'] ?? ''; // PIX code for copy/paste
             
             // Redirecionar para evitar reenvio do formulário
             header('Location: buy_credits.php');
