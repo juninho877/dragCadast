@@ -735,7 +735,7 @@ class User {
                 SET logo_change_limit = ?,
                     movie_logo_change_limit = ?,
                     background_change_limit = ?
-                WHERE role IN ('user', 'master')
+                WHERE id > 0
             ");
             
             $stmt->execute([$logoLimit, $movieLogoLimit, $backgroundLimit]);
