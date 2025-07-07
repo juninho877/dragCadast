@@ -812,6 +812,20 @@ include "includes/header.php";
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing credit purchase functionality');
+    
+    // Verificar se SweetAlert2 está disponível
+    if (typeof Swal === 'undefined') {
+        console.error('SweetAlert2 is not defined! Make sure it is properly loaded.');
+        // Tentar carregar SweetAlert2 dinamicamente
+        const sweetAlertScript = document.createElement('script');
+        sweetAlertScript.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+        document.head.appendChild(sweetAlertScript);
+        console.log('Attempted to load SweetAlert2 dynamically');
+    } else {
+        console.log('SweetAlert2 is available');
+    }
+    
     // Seleção de quantidade de créditos
     const creditBtns = document.querySelectorAll('.credit-btn');
     const creditsInput = document.getElementById('credits');
@@ -865,6 +879,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Verificar pagamento via AJAX
     const checkPaymentBtn = document.getElementById('check-payment-btn');
+    console.log('checkPaymentBtn found:', checkPaymentBtn ? 'Yes' : 'No');
     if (checkPaymentBtn) {
         // Copiar código Pix
         const copyPixCodeBtn = document.getElementById('copyPixCodeBtn');
@@ -917,7 +932,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         checkPaymentBtn.addEventListener('click', function() {
+            console.log('Check payment button clicked!');
             const paymentId = '<?php echo urlencode($_SESSION['credit_payment_id'] ?? ''); ?>';
+            console.log('Payment ID:', paymentId);
             
             if (!paymentId) {
                 Swal.fire({
@@ -934,19 +951,38 @@ document.addEventListener('DOMContentLoaded', function() {
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
             
             const statusMessageContainer = document.getElementById('payment-status-message');
+            console.log('Status message container found:', statusMessageContainer ? 'Yes' : 'No');
+            
+            if (!statusMessageContainer) {
+                console.error('Status message container not found!');
+                // Criar o container se não existir
+                const newContainer = document.createElement('div');
+                newContainer.id = 'payment-status-message';
+                newContainer.style.marginTop = '1rem';
+                document.querySelector('.qr-code-actions').insertAdjacentElement('afterend', newContainer);
+                console.log('Created new status message container');
+            }
             
             // Fazer requisição AJAX para verificar o pagamento
             fetch('check_credit_payment.php', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 },
                 body: `payment_id=${paymentId}&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>`
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Fetch response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Fetch response data:', data);
                 if (data.success) {
                     if (data.status === 'approved') {
+                        console.log('Payment approved, showing success message');
                         // Pagamento aprovado
                         Swal.fire({
                             title: 'Pagamento Aprovado!',
@@ -970,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                         
                     } else if (data.status === 'pending') {
+                        console.log('Payment pending, showing info message');
                         // Pagamento pendente
                         statusMessageContainer.style.display = 'block';
                         statusMessageContainer.innerHTML = `
@@ -987,6 +1024,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         this.innerHTML = '<i class="fas fa-sync-alt"></i> Verificar Pagamento';
                         
                     } else if (data.status === 'rejected' || data.status === 'cancelled') {
+                        console.log('Payment rejected/cancelled, showing error message');
                         // Pagamento rejeitado
                         Swal.fire({
                             title: 'Pagamento Rejeitado',
@@ -1001,6 +1039,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     } else {
                         // Outro status
+                        console.log('Other payment status:', data.status);
                         statusMessageContainer.style.display = 'block';
                         statusMessageContainer.innerHTML = `
                             <div class="alert alert-warning mb-6">
@@ -1018,6 +1057,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } else {
                     // Erro na verificação
+                    console.log('Error in payment verification:', data.message);
                     statusMessageContainer.style.display = 'block';
                     statusMessageContainer.innerHTML = `
                         <div class="alert alert-error mb-6">
@@ -1035,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Fetch or JSON parsing error:', error);
                 statusMessageContainer.style.display = 'block';
                 statusMessageContainer.innerHTML = `
                     <div class="alert alert-error mb-6">
@@ -1057,8 +1097,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-refresh para verificar pagamento a cada 30 segundos
     <?php if ($paymentInProgress && !$qrCodeExpired): ?>
     const checkPaymentInterval = setInterval(function() {
+        console.log('Auto-refresh: Checking payment status...');
         const paymentId = '<?php echo urlencode($_SESSION['credit_payment_id'] ?? ''); ?>';
+        console.log('Auto-refresh: Payment ID:', paymentId);
         if (!paymentId) {
+            console.log('Auto-refresh: No payment ID found, clearing interval');
             clearInterval(checkPaymentInterval);
             return;
         }
@@ -1067,15 +1110,23 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('check_credit_payment.php', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: `payment_id=${paymentId}&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>`
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Auto-refresh: Fetch response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Auto-refresh: Fetch response data:', data);
             if (data.success) {
                 if (data.status === 'approved') {
                     // Pagamento aprovado - redirecionar
+                    console.log('Auto-refresh: Payment approved, redirecting');
                     clearInterval(checkPaymentInterval);
                     
                     // Armazenar mensagem de sucesso na sessão via AJAX
@@ -1090,14 +1141,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 } else if (data.status === 'rejected' || data.status === 'cancelled') {
                     // Pagamento rejeitado - redirecionar
+                    console.log('Auto-refresh: Payment rejected/cancelled, redirecting');
                     clearInterval(checkPaymentInterval);
                     window.location.href = 'buy_credits.php';
                 }
                 // Se for pending, não faz nada e continua verificando
+                else if (data.status === 'pending') {
+                    console.log('Auto-refresh: Payment still pending, continuing checks');
+                }
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Auto-refresh: Fetch or JSON parsing error:', error);
         });
     }, 30000); // Verificar a cada 30 segundos
     
