@@ -10,6 +10,7 @@ require_once 'classes/CreditTransaction.php';
 
 $user = new User();
 $creditTransaction = new CreditTransaction();
+$db = Database::getInstance()->getConnection();
 
 // Processar filtros
 $filters = [
@@ -58,7 +59,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             echo json_encode($result);
             exit;
+            
+        case 'update_image_limits':
+            $logoLimit = intval($_POST['logo_limit']);
+            $movieLogoLimit = intval($_POST['movie_logo_limit']);
+            $backgroundLimit = intval($_POST['background_limit']);
+            
+            $result = $user->updateAllImageChangeLimits($logoLimit, $movieLogoLimit, $backgroundLimit);
+            echo json_encode($result);
+            exit;
+            
+        case 'reset_image_counts':
+            $result = $user->resetAllImageChangeCounts();
+            echo json_encode($result);
+            exit;
     }
+}
+
+// Buscar limites globais atuais (armazenados no usuário admin ID 1)
+$stmt = $db->prepare("
+    SELECT logo_change_limit, movie_logo_change_limit, background_change_limit
+    FROM usuarios
+    WHERE id = 1
+");
+$stmt->execute();
+$globalLimits = $stmt->fetch();
+
+// Valores padrão se não encontrados
+if (!$globalLimits) {
+    $globalLimits = [
+        'logo_change_limit' => 3,
+        'movie_logo_change_limit' => 3,
+        'background_change_limit' => 3
+    ];
 }
 
 $pageTitle = "Gerenciamento de Usuários";
@@ -182,6 +215,64 @@ include "includes/header.php";
     </div>
 </div>
 
+<!-- Image Change Limits -->
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-images text-primary-500 mr-2"></i>
+            Limites de Troca de Imagens
+        </h3>
+        <p class="card-subtitle">Configure os limites diários de troca de imagens para todos os usuários</p>
+    </div>
+    <div class="card-body">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="form-group">
+                <label for="global_logo_limit" class="form-label">
+                    <i class="fas fa-image mr-2"></i>
+                    Limite de Logos
+                </label>
+                <input type="number" id="global_logo_limit" class="form-input" min="0" value="<?php echo $globalLimits['logo_change_limit']; ?>">
+                <p class="text-xs text-muted mt-1">Trocas de logo permitidas por dia</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="global_movie_logo_limit" class="form-label">
+                    <i class="fas fa-film mr-2"></i>
+                    Limite de Logos de Filmes
+                </label>
+                <input type="number" id="global_movie_logo_limit" class="form-input" min="0" value="<?php echo $globalLimits['movie_logo_change_limit']; ?>">
+                <p class="text-xs text-muted mt-1">Trocas de logo de filmes permitidas por dia</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="global_background_limit" class="form-label">
+                    <i class="fas fa-image mr-2"></i>
+                    Limite de Fundos
+                </label>
+                <input type="number" id="global_background_limit" class="form-input" min="0" value="<?php echo $globalLimits['background_change_limit']; ?>">
+                <p class="text-xs text-muted mt-1">Trocas de fundo permitidas por dia</p>
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap gap-3">
+            <button type="button" id="updateLimitsBtn" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                Aplicar Limites para Todos
+            </button>
+            
+            <button type="button" id="resetCountsBtn" class="btn btn-warning">
+                <i class="fas fa-redo"></i>
+                Resetar Contadores Diários
+            </button>
+            
+            <div class="info-badge">
+                <i class="fas fa-info-circle"></i>
+                <span>Administradores não têm limites de troca de imagens</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Actions Bar -->
 <div class="flex justify-between items-center mb-6 actions-bar-mobile">
     <div class="flex gap-3">
@@ -214,6 +305,7 @@ include "includes/header.php";
                         <th>Status</th>
                         <th>Expira em</th>
                         <th>Créditos</th>
+                        <th>Limites de Imagens</th>
                         <th>Último Login</th>
                         <th>Ações</th>
                     </tr>
@@ -221,7 +313,7 @@ include "includes/header.php";
                 <tbody>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">Nenhum usuário encontrado</td>
+                            <td colspan="10" class="text-center py-4 text-muted">Nenhum usuário encontrado</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users as $userData): 
@@ -291,6 +383,23 @@ include "includes/header.php";
                                         </div>
                                     <?php else: ?>
                                         <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($userData['role'] !== 'admin'): ?>
+                                    <div class="limits-display">
+                                        <span class="limit-badge" title="Logo: <?php echo $userData['logo_changes_today']; ?>/<?php echo $userData['logo_change_limit']; ?>">
+                                            <i class="fas fa-image"></i> <?php echo $userData['logo_changes_today']; ?>/<?php echo $userData['logo_change_limit']; ?>
+                                        </span>
+                                        <span class="limit-badge" title="Logo Filme: <?php echo $userData['movie_logo_changes_today']; ?>/<?php echo $userData['movie_logo_change_limit']; ?>">
+                                            <i class="fas fa-film"></i> <?php echo $userData['movie_logo_changes_today']; ?>/<?php echo $userData['movie_logo_change_limit']; ?>
+                                        </span>
+                                        <span class="limit-badge" title="Fundo: <?php echo $userData['background_changes_today']; ?>/<?php echo $userData['background_change_limit']; ?>">
+                                            <i class="fas fa-image"></i> <?php echo $userData['background_changes_today']; ?>/<?php echo $userData['background_change_limit']; ?>
+                                        </span>
+                                    </div>
+                                    <?php else: ?>
+                                    <span class="text-muted">Sem limite</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -435,6 +544,23 @@ include "includes/header.php";
                                         <i class="fas fa-history"></i>
                                     </a>
                                 </div>
+                            <?php endif; ?>
+                            
+                            <?php if ($userData['role'] !== 'admin'): ?>
+                            <div class="mobile-detail-item">
+                                <span class="mobile-detail-label">Limites de Imagens</span>
+                                <div class="mobile-limits-display">
+                                    <span class="limit-badge" title="Logo: <?php echo $userData['logo_changes_today']; ?>/<?php echo $userData['logo_change_limit']; ?>">
+                                        <i class="fas fa-image"></i> <?php echo $userData['logo_changes_today']; ?>/<?php echo $userData['logo_change_limit']; ?>
+                                    </span>
+                                    <span class="limit-badge" title="Logo Filme: <?php echo $userData['movie_logo_changes_today']; ?>/<?php echo $userData['movie_logo_change_limit']; ?>">
+                                        <i class="fas fa-film"></i> <?php echo $userData['movie_logo_changes_today']; ?>/<?php echo $userData['movie_logo_change_limit']; ?>
+                                    </span>
+                                    <span class="limit-badge" title="Fundo: <?php echo $userData['background_changes_today']; ?>/<?php echo $userData['background_change_limit']; ?>">
+                                        <i class="fas fa-image"></i> <?php echo $userData['background_changes_today']; ?>/<?php echo $userData['background_change_limit']; ?>
+                                    </span>
+                                </div>
+                            </div>
                             <?php endif; ?>
                         </div>
                         
@@ -637,6 +763,45 @@ include "includes/header.php";
         display: flex;
         gap: 1rem;
         margin-top: 1rem;
+    }
+    
+    .info-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--bg-tertiary);
+        border-radius: var(--border-radius-sm);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+    
+    .limits-display {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .limit-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        background: var(--bg-tertiary);
+        border-radius: var(--border-radius-sm);
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+    
+    .mobile-limits-display {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .mobile-limits-display .limit-badge {
+        justify-content: space-between;
     }
 
     /* Dark theme adjustments */
@@ -1075,6 +1240,157 @@ document.addEventListener('DOMContentLoaded', function() {
     // Refresh Button
     document.getElementById('refreshBtn').addEventListener('click', function() {
         location.reload();
+    });
+    
+    // Update Image Limits
+    document.getElementById('updateLimitsBtn').addEventListener('click', function() {
+        const logoLimit = document.getElementById('global_logo_limit').value;
+        const movieLogoLimit = document.getElementById('global_movie_logo_limit').value;
+        const backgroundLimit = document.getElementById('global_background_limit').value;
+        
+        if (logoLimit < 0 || movieLogoLimit < 0 || backgroundLimit < 0) {
+            Swal.fire({
+                title: 'Erro!',
+                text: 'Os limites não podem ser negativos',
+                icon: 'error',
+                background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+            });
+            return;
+        }
+        
+        Swal.fire({
+            title: 'Confirmar Ação',
+            text: `Deseja aplicar estes limites para todos os usuários e masters?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, aplicar',
+            cancelButtonText: 'Cancelar',
+            background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+            color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Processando...',
+                    text: 'Atualizando limites para todos os usuários',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                    background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                    color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                });
+                
+                fetch('user_management.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=update_image_limits&logo_limit=${logoLimit}&movie_logo_limit=${movieLogoLimit}&background_limit=${backgroundLimit}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            title: 'Sucesso!',
+                            text: data.message,
+                            icon: 'success',
+                            background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                            color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Erro!',
+                            text: data.message,
+                            icon: 'error',
+                            background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                            color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        title: 'Erro!',
+                        text: 'Erro de comunicação com o servidor',
+                        icon: 'error',
+                        background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                        color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                    });
+                });
+            }
+        });
+    });
+    
+    // Reset Image Counts
+    document.getElementById('resetCountsBtn').addEventListener('click', function() {
+        Swal.fire({
+            title: 'Confirmar Ação',
+            text: `Deseja resetar todos os contadores diários de troca de imagens?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, resetar',
+            cancelButtonText: 'Cancelar',
+            background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+            color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Processando...',
+                    text: 'Resetando contadores para todos os usuários',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                    background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                    color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                });
+                
+                fetch('user_management.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=reset_image_counts'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            title: 'Sucesso!',
+                            text: data.message,
+                            icon: 'success',
+                            background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                            color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Erro!',
+                            text: data.message,
+                            icon: 'error',
+                            background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                            color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        title: 'Erro!',
+                        text: 'Erro de comunicação com o servidor',
+                        icon: 'error',
+                        background: document.body.getAttribute('data-theme') === 'dark' ? '#1e293b' : '#ffffff',
+                        color: document.body.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#1e293b'
+                    });
+                });
+            }
+        });
     });
 
     function changeUserStatus(userId, status) {

@@ -34,6 +34,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null
     ];
     
+    // Se os limites de imagem foram enviados
+    if (isset($_POST['logo_change_limit']) && isset($_POST['movie_logo_change_limit']) && isset($_POST['background_change_limit'])) {
+        $logoLimit = max(0, intval($_POST['logo_change_limit']));
+        $movieLogoLimit = max(0, intval($_POST['movie_logo_change_limit']));
+        $backgroundLimit = max(0, intval($_POST['background_change_limit']));
+        
+        // Atualizar limites de imagem
+        $user->updateImageChangeLimits($userId, $logoLimit, $movieLogoLimit, $backgroundLimit);
+    }
+    
     // Se uma nova senha foi fornecida
     if (!empty($_POST['password'])) {
         if (strlen($_POST['password']) < 6) {
@@ -188,6 +198,67 @@ include "includes/header.php";
                         </div>
                     </div>
 
+                    <div class="border-t border-gray-200 my-6 pt-6">
+                        <h4 class="text-lg font-semibold mb-4">Limites de Troca de Imagens</h4>
+                        
+                        <?php if ($userData['role'] !== 'admin'): ?>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="form-group">
+                                <label for="logo_change_limit" class="form-label">
+                                    <i class="fas fa-image mr-2"></i>
+                                    Limite de Logos
+                                </label>
+                                <input type="number" id="logo_change_limit" name="logo_change_limit" class="form-input" 
+                                       value="<?php echo intval($userData['logo_change_limit']); ?>" min="0">
+                                <p class="text-xs text-muted mt-1">Trocas de logo permitidas por dia</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="movie_logo_change_limit" class="form-label">
+                                    <i class="fas fa-film mr-2"></i>
+                                    Limite de Logos de Filmes
+                                </label>
+                                <input type="number" id="movie_logo_change_limit" name="movie_logo_change_limit" class="form-input" 
+                                       value="<?php echo intval($userData['movie_logo_change_limit']); ?>" min="0">
+                                <p class="text-xs text-muted mt-1">Trocas de logo de filmes permitidas por dia</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="background_change_limit" class="form-label">
+                                    <i class="fas fa-image mr-2"></i>
+                                    Limite de Fundos
+                                </label>
+                                <input type="number" id="background_change_limit" name="background_change_limit" class="form-input" 
+                                       value="<?php echo intval($userData['background_change_limit']); ?>" min="0">
+                                <p class="text-xs text-muted mt-1">Trocas de fundo permitidas por dia</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-info-circle text-primary-500"></i>
+                                <p class="text-sm">
+                                    Uso atual: 
+                                    <span class="font-medium">Logo: <?php echo $userData['logo_changes_today']; ?>/<?php echo $userData['logo_change_limit']; ?></span> • 
+                                    <span class="font-medium">Logo Filme: <?php echo $userData['movie_logo_changes_today']; ?>/<?php echo $userData['movie_logo_change_limit']; ?></span> • 
+                                    <span class="font-medium">Fundo: <?php echo $userData['background_changes_today']; ?>/<?php echo $userData['background_change_limit']; ?></span>
+                                </p>
+                            </div>
+                            <p class="text-xs text-muted mt-1">
+                                Última atualização: <?php echo $userData['last_image_change_reset_date'] ? date('d/m/Y', strtotime($userData['last_image_change_reset_date'])) : 'Nunca'; ?>
+                            </p>
+                        </div>
+                        <?php else: ?>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <div>
+                                <p class="font-medium">Administradores não têm limites</p>
+                                <p class="text-sm mt-1">Os administradores podem trocar imagens sem restrições de quantidade.</p>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
                     <div class="flex gap-4 pt-4">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i>
@@ -249,6 +320,24 @@ include "includes/header.php";
                         <span class="text-muted">Criado em:</span>
                         <span><?php echo date('d/m/Y', strtotime($userData['created_at'])); ?></span>
                     </div>
+                    <?php if ($userData['role'] !== 'admin'): ?>
+                    <div class="flex justify-between">
+                        <span class="text-muted">Limites de Imagens:</span>
+                        <span>
+                            L: <?php echo $userData['logo_change_limit']; ?> •
+                            F: <?php echo $userData['movie_logo_change_limit']; ?> •
+                            B: <?php echo $userData['background_change_limit']; ?>
+                        </span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-muted">Trocas Hoje:</span>
+                        <span>
+                            L: <?php echo $userData['logo_changes_today']; ?> •
+                            F: <?php echo $userData['movie_logo_changes_today']; ?> •
+                            B: <?php echo $userData['background_changes_today']; ?>
+                        </span>
+                    </div>
+                    <?php endif; ?>
                     <div class="flex justify-between">
                         <span class="text-muted">Último login:</span>
                         <span>
@@ -353,6 +442,12 @@ include "includes/header.php";
         border: 1px solid rgba(239, 68, 68, 0.2);
     }
     
+    .alert-info {
+        background: var(--primary-50);
+        color: var(--primary-600);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    
     .password-toggle {
         position: absolute;
         right: 0.75rem;
@@ -422,6 +517,11 @@ include "includes/header.php";
     [data-theme="dark"] .alert-error {
         background: rgba(239, 68, 68, 0.1);
         color: var(--danger-400);
+    }
+    
+    [data-theme="dark"] .alert-info {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--primary-400);
     }
 
     [data-theme="dark"] .border-gray-200 {
