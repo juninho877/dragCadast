@@ -441,6 +441,7 @@ class User {
     // Comprar créditos para um usuário master
     public function purchaseCredits($userId, $amount, $paymentId = null) {
         try {
+            error_log("Iniciando compra de créditos: user=$userId, amount=$amount, payment=$paymentId");
             $this->db->beginTransaction();
             
             // Verificar se o usuário existe e é um master
@@ -449,16 +450,19 @@ class User {
             $user = $stmt->fetch();
             
             if (!$user) {
+                error_log("Usuário não encontrado ou não é um master: $userId");
                 $this->db->rollBack();
                 return ['success' => false, 'message' => 'Usuário não encontrado ou não é um master'];
             }
             
             // Adicionar créditos
+            error_log("Adicionando $amount créditos ao usuário $userId");
             $stmt = $this->db->prepare("UPDATE usuarios SET credits = credits + ? WHERE id = ?");
             $stmt->execute([$amount, $userId]);
             
             // Registrar a compra de créditos
             if ($paymentId) {
+                error_log("Registrando compra de créditos com payment_id: $paymentId");
                 $stmt = $this->db->prepare("
                     INSERT INTO credit_purchases (user_id, amount, payment_id, created_at)
                     VALUES (?, ?, ?, NOW())
@@ -467,6 +471,7 @@ class User {
             }
             
             // Registrar a transação
+            error_log("Registrando transação de crédito");
             $creditTransaction = new CreditTransaction();
             $creditTransaction->recordTransaction(
                 $userId,
@@ -478,10 +483,11 @@ class User {
             );
             
             $this->db->commit();
+            error_log("Compra de créditos concluída com sucesso");
             return ['success' => true, 'message' => "{$amount} créditos adicionados com sucesso"];
         } catch (PDOException $e) {
-            $this->db->rollBack();
             error_log("Erro ao comprar créditos: " . $e->getMessage());
+            $this->db->rollBack();
             return ['success' => false, 'message' => 'Erro ao comprar créditos: ' . $e->getMessage()];
         }
     }

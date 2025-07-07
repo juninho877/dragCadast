@@ -228,6 +228,8 @@ class MercadoPagoPayment {
      */
     public function checkPaymentStatus($preferenceId) {
         try {
+            error_log("Verificando status do pagamento: $preferenceId");
+            
             // First, get the owner_user_id from the payment record
             $stmt = $this->db->prepare("
                 SELECT owner_user_id, user_id, payment_purpose, related_quantity, is_processed 
@@ -238,11 +240,14 @@ class MercadoPagoPayment {
             $paymentRecord = $stmt->fetch();
             
             if (!$paymentRecord) {
+                error_log("Pagamento não encontrado no sistema: $preferenceId");
                 return [
                     'success' => false, 
                     'message' => 'Pagamento não encontrado no sistema'
                 ];
             }
+            
+            error_log("Registro de pagamento encontrado: " . json_encode($paymentRecord));
             
             $ownerUserId = $paymentRecord['owner_user_id'] ?: 1; // Default to admin if not set
             
@@ -250,6 +255,7 @@ class MercadoPagoPayment {
             $ownerSettings = $this->mercadoPagoSettings->getSettings($ownerUserId);
             
             if (!$ownerSettings || empty($ownerSettings['access_token'])) {
+                error_log("Configurações do Mercado Pago não encontradas para o usuário $ownerUserId");
                 return [
                     'success' => false, 
                     'message' => 'Configurações do Mercado Pago não encontradas'
@@ -257,6 +263,7 @@ class MercadoPagoPayment {
             }
             
             $accessToken = $ownerSettings['access_token'];
+            error_log("Token de acesso obtido para o usuário $ownerUserId");
             
             // Buscar pagamento diretamente pelo ID
             $url = "https://api.mercadopago.com/v1/payments/{$preferenceId}";
@@ -274,9 +281,16 @@ class MercadoPagoPayment {
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch);
+            
+            error_log("Resposta da API do Mercado Pago - HTTP Code: $httpCode");
+            if ($error) {
+                error_log("Erro cURL: $error");
+            }
+            
             curl_close($ch);
             
             if ($response === false) {
+                error_log("Erro na conexão com o Mercado Pago: $error");
                 return [
                     'success' => false, 
                     'message' => 'Erro na conexão com o Mercado Pago: ' . $error
@@ -284,6 +298,7 @@ class MercadoPagoPayment {
             }
             
             if ($httpCode !== 200) {
+                error_log("Erro ao buscar pagamento: HTTP $httpCode - $response");
                 return [
                     'success' => false, 
                     'message' => 'Erro ao buscar pagamento: ' . $response,
@@ -292,6 +307,7 @@ class MercadoPagoPayment {
             }
             
             $payment = json_decode($response, true);
+            error_log("Pagamento obtido com sucesso: " . json_encode(['id' => $payment['id'], 'status' => $payment['status']]));
             
             $userId = $paymentRecord['user_id'];
             $paymentPurpose = $paymentRecord['payment_purpose'];
@@ -323,6 +339,7 @@ class MercadoPagoPayment {
             // Verificar se o pagamento foi aprovado e ainda não foi processado
             if ($payment['status'] === 'approved' && !$isProcessed) {
                 // Processar com base no tipo de pagamento
+                error_log("Processando pagamento aprovado: purpose=$paymentPurpose, user=$userId, quantity=$relatedQuantity");
                 if ($paymentPurpose === 'subscription') {
                     // Renovar acesso do usuário
                     $this->renewUserAccess($userId, $relatedQuantity);
@@ -330,7 +347,12 @@ class MercadoPagoPayment {
                     // Adicionar créditos ao usuário
                     require_once 'User.php';
                     $user = new User();
-                    $user->purchaseCredits($userId, $relatedQuantity, $preferenceId);
+                    try {
+                        $result = $user->purchaseCredits($userId, $relatedQuantity, $preferenceId);
+                        error_log("Créditos adicionados: " . json_encode($result));
+                    } catch (Exception $e) {
+                        error_log("Erro ao adicionar créditos: " . $e->getMessage());
+                    }
                 }
                 
                 // Marcar como processado
@@ -342,6 +364,7 @@ class MercadoPagoPayment {
                 $stmt->execute([$preferenceId, $preferenceId]);
             }
             
+            error_log("Retornando status do pagamento: " . $payment['status']);
             return [
                 'success' => true,
                 'status' => $payment['status'],
@@ -355,6 +378,7 @@ class MercadoPagoPayment {
             ];
             
         } catch (Exception $e) {
+            error_log("Exceção ao verificar status do pagamento: " . $e->getMessage());
             return [
                 'success' => false, 
                 'message' => 'Erro interno: ' . $e->getMessage()
