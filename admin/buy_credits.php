@@ -26,6 +26,8 @@ $whatsappNumber = $adminSettings['whatsapp_number'] ?? '5511999999999';
 // Verificar se há um pagamento em andamento
 $paymentInProgress = isset($_SESSION['credit_payment_qr_code']) && !empty($_SESSION['credit_payment_qr_code']);
 $paymentCreatedAt = isset($_SESSION['credit_payment_created_at']) ? $_SESSION['credit_payment_created_at'] : null;
+$paymentId = isset($_SESSION['credit_payment_id']) ? $_SESSION['credit_payment_id'] : '';
+$paymentCredits = isset($_SESSION['credit_payment_credits']) ? intval($_SESSION['credit_payment_credits']) : 1;
 
 // Verificar se o QR code expirou (30 minutos)
 $qrCodeExpired = false;
@@ -969,7 +971,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: `payment_id=${paymentId}&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>`
+                body: 'payment_id=<?php echo urlencode($paymentId); ?>&credits=<?php echo $paymentCredits; ?>'
             })
             .then(response => {
                 console.log('Fetch response status:', response.status);
@@ -1112,7 +1114,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: `payment_id=${paymentId}&credits=<?php echo intval($_SESSION['credit_payment_credits'] ?? 1); ?>`
+            body: 'payment_id=<?php echo urlencode($paymentId); ?>&credits=<?php echo $paymentCredits; ?>'
         })
         .then(response => {
             console.log('Auto-refresh: Fetch response status:', response.status);
