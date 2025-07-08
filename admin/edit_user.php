@@ -8,6 +8,7 @@ if (!isset($_SESSION["usuario"]) || $_SESSION["role"] !== 'admin') {
 require_once 'classes/User.php';
 
 $userClass = new User();
+$user = $userClass; // Alias for backward compatibility
 $message = '';
 $messageType = '';
 
@@ -41,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $backgroundLimit = max(0, intval($_POST['background_change_limit']));
         
         // Atualizar limites de imagem
-        $user->updateImageChangeLimits($userId, $logoLimit, $movieLogoLimit, $backgroundLimit);
+        $userClass->updateImageChangeLimits($userId, $logoLimit, $movieLogoLimit, $backgroundLimit);
     }
     
     // Se uma nova senha foi fornecida
