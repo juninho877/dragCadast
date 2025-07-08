@@ -345,6 +345,18 @@ include "includes/header.php";
                                                 echo 'Usuário';
                                         }
                                         ?>
+                                        <?php 
+                                        switch ($userData['role']) {
+                                            case 'admin':
+                                                echo 'Administrador';
+                                                break;
+                                            case 'master':
+                                                echo 'Master';
+                                                break;
+                                            default:
+                                                echo 'Usuário';
+                                        }
+                                        ?>
                                     </span>
                                 </td>
                                 <td>
@@ -373,7 +385,7 @@ include "includes/header.php";
                                 <td>
                                     <?php if ($userData['role'] === 'master'): ?>
                                         <div class="flex items-center gap-2">
-                                            <span class="font-medium"><?php echo $userData['credits']; ?></span>
+                                            <span class="font-medium"><?php echo $userData['credits'] ?? 0; ?></span>
                                             <button class="btn-action btn-primary add-credits" data-user-id="<?php echo $userData['id']; ?>" title="Adicionar Créditos">
                                                 <i class="fas fa-plus-circle"></i>
                                             </button>

@@ -11,6 +11,13 @@ $user = new User();
 $message = '';
 $messageType = '';
 $masterId = $_SESSION['user_id'];
+
+// Buscar limites de troca de imagens do admin (ID 1)
+$adminUser = $user->getUserById(1);
+$logoChangeLimit = $adminUser ? $adminUser['logo_change_limit'] : 3;
+$movieLogoChangeLimit = $adminUser ? $adminUser['movie_logo_change_limit'] : 3;
+$backgroundChangeLimit = $adminUser ? $adminUser['background_change_limit'] : 3;
+
 $masterCredits = $user->getUserCredits($masterId);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -20,8 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => trim($_POST['password']),
         'role' => 'user', // Master só pode criar usuários comuns
         'status' => $_POST['status'],
-        'expires_at' => date('Y-m-d', strtotime('+30 days')), // Sempre 30 dias a partir de hoje
-        'parent_user_id' => $masterId // Definir o master como pai do usuário
+        'expires_at' => date('Y-m-d', strtotime('+30 days')),
+        'parent_user_id' => $masterId, // Definir o master como pai do usuário
+        'logo_change_limit' => $logoChangeLimit,
+        'movie_logo_change_limit' => $movieLogoChangeLimit,
+        'background_change_limit' => $backgroundChangeLimit
     ];
     
     // Validações

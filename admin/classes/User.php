@@ -104,6 +104,19 @@ class User {
     // Criar novo usuário
     public function createUser($data) {
         try {
+            // Buscar limites de troca de imagens do admin (ID 1)
+            $stmt = $this->db->prepare("
+                SELECT logo_change_limit, movie_logo_change_limit, background_change_limit
+                FROM usuarios WHERE id = 1
+            ");
+            $stmt->execute();
+            $adminLimits = $stmt->fetch();
+            
+            // Definir limites padrão caso não encontre o admin
+            $logoChangeLimit = $adminLimits ? $adminLimits['logo_change_limit'] : 3;
+            $movieLogoChangeLimit = $adminLimits ? $adminLimits['movie_logo_change_limit'] : 3;
+            $backgroundChangeLimit = $adminLimits ? $adminLimits['background_change_limit'] : 3;
+            
             // Verificar se username já existe
             $stmt = $this->db->prepare("SELECT id FROM usuarios WHERE username = ?");
             $stmt->execute([$data['username']]);
@@ -153,8 +166,9 @@ class User {
             }
             
             $stmt = $this->db->prepare("
-                INSERT INTO usuarios (username, password, email, role, status, expires_at, parent_user_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO usuarios (username, password, email, role, status, expires_at, parent_user_id,
+                                     logo_change_limit, movie_logo_change_limit, background_change_limit) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
@@ -167,7 +181,10 @@ class User {
                 $data['role'] ?? 'user',
                 $data['status'] ?? 'active',
                 $expiresAt,
-                $parentUserId
+                $parentUserId,
+                $logoChangeLimit,
+                $movieLogoChangeLimit,
+                $backgroundChangeLimit
             ]);
             
             return ['success' => true, 'message' => 'Usuário criado com sucesso'];

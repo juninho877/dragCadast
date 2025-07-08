@@ -11,6 +11,12 @@ $user = new User();
 $message = '';
 $messageType = '';
 
+// Buscar limites de troca de imagens do admin (ID 1)
+$adminUser = $user->getUserById(1);
+$logoChangeLimit = $adminUser ? $adminUser['logo_change_limit'] : 3;
+$movieLogoChangeLimit = $adminUser ? $adminUser['movie_logo_change_limit'] : 3;
+$backgroundChangeLimit = $adminUser ? $adminUser['background_change_limit'] : 3;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = [
         'username' => trim($_POST['username']),
@@ -18,7 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => trim($_POST['password']),
         'role' => $_POST['role'],
         'status' => $_POST['status'],
-        'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null
+        'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
+        'logo_change_limit' => $logoChangeLimit,
+        'movie_logo_change_limit' => $movieLogoChangeLimit,
+        'background_change_limit' => $backgroundChangeLimit
     ];
     
     // Validações
